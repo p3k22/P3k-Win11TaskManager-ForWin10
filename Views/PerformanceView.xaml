@@ -1,0 +1,274 @@
+<UserControl x:Class="Win11TaskMan.Views.PerformanceView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:Win11TaskMan.Views"
+             Background="#1E1E1E" Foreground="#FFFFFF" FontSize="13">
+
+    <UserControl.Resources>
+        <Style x:Key="Card" TargetType="RadioButton">
+            <Setter Property="Margin" Value="10,3"/>
+            <Setter Property="Height" Value="74"/>
+            <!-- without this the RadioButton falls back to near-black default text -->
+            <Setter Property="Foreground" Value="#F0F0F0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="b" CornerRadius="6" Background="Transparent" Padding="8">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="b" Property="Background" Value="#262626"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="b" Property="Background" Value="#2D2D2D"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+                </Setter>
+            </Style>
+        <Style x:Key="StatLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#A8A8A8"/><Setter Property="FontSize" Value="12"/>
+        </Style>
+        <Style x:Key="StatValue" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#F0F0F0"/><Setter Property="FontSize" Value="20"/>
+        </Style>
+        <Style x:Key="InfoKey" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#A8A8A8"/><Setter Property="FontSize" Value="12"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+        </Style>
+        <Style x:Key="InfoVal" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#F0F0F0"/><Setter Property="FontSize" Value="12"/>
+            <Setter Property="Margin" Value="0,0,0,6"/><Setter Property="TextAlignment" Value="Right"/>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="230"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- header -->
+        <TextBlock Text="Performance" FontSize="20" FontWeight="SemiBold"
+                   Margin="20,16,0,0" Grid.ColumnSpan="2" VerticalAlignment="Top"/>
+
+        <!-- metric cards (one card per physical disk is inserted in code) -->
+        <!-- scrolls when the card list (esp. many disks) is taller than the window,
+             so Network/GPU stay reachable -->
+        <ScrollViewer Grid.Column="0" Margin="0,56,0,0"
+                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel x:Name="MetricList">
+            <RadioButton x:Name="CardCpu" GroupName="metric" Style="{StaticResource Card}" IsChecked="True" Checked="Card_Checked">
+                <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="76"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <Border x:Name="CpuSparkHost" Grid.Column="0" Background="#141414" CornerRadius="3"/>
+                    <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="CPU" FontSize="14"/>
+                        <TextBlock x:Name="CpuCardSub" Text="0%  0.00 GHz" Foreground="#A8A8A8" FontSize="12"/>
+                    </StackPanel>
+                </Grid>
+            </RadioButton>
+
+            <RadioButton x:Name="CardMem" GroupName="metric" Style="{StaticResource Card}" Checked="Card_Checked">
+                <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="76"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <Border x:Name="MemSparkHost" Grid.Column="0" Background="#141414" CornerRadius="3"/>
+                    <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="Memory" FontSize="14"/>
+                        <TextBlock x:Name="MemCardSub" Text="0/0 GB (0%)" Foreground="#A8A8A8" FontSize="12"/>
+                    </StackPanel>
+                </Grid>
+            </RadioButton>
+
+            <RadioButton x:Name="CardNet" GroupName="metric" Style="{StaticResource Card}" Checked="Card_Checked">
+                <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="76"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <Border x:Name="NetSparkHost" Grid.Column="0" Background="#141414" CornerRadius="3"/>
+                    <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                        <TextBlock x:Name="NetCardTitle" Text="Wi-Fi" FontSize="14"/>
+                        <TextBlock x:Name="NetCardSub" Text="S: 0  R: 0 Kbps" Foreground="#A8A8A8" FontSize="12"/>
+                    </StackPanel>
+                </Grid>
+            </RadioButton>
+
+            <RadioButton x:Name="CardGpu" GroupName="metric" Style="{StaticResource Card}" IsEnabled="False" Opacity="0.6" Checked="Card_Checked">
+                <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="76"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                    <Border x:Name="GpuSparkHost" Grid.Column="0" Background="#141414" CornerRadius="3"/>
+                    <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center">
+                        <TextBlock x:Name="GpuCardTitle" Text="GPU 0" FontSize="14"/>
+                        <TextBlock x:Name="GpuCardSub" Text="—" Foreground="#A8A8A8" FontSize="12"/>
+                    </StackPanel>
+                </Grid>
+            </RadioButton>
+        </StackPanel>
+        </ScrollViewer>
+
+        <!-- main detail pane -->
+        <Grid Grid.Column="1" Margin="24,56,24,20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <Grid Grid.Row="0">
+                <TextBlock x:Name="DetailTitle" Text="CPU" FontSize="30" FontWeight="SemiBold"/>
+                <TextBlock x:Name="DetailSubtitle" Text="" FontSize="16" Foreground="#D0D0D0"
+                           HorizontalAlignment="Right" VerticalAlignment="Bottom"/>
+            </Grid>
+
+            <!-- big graph area -->
+            <Grid Grid.Row="1" Margin="0,8,0,8">
+                <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                <Grid Grid.Row="0">
+                    <TextBlock x:Name="GraphTopLeft" Text="% Utilization" Foreground="#A8A8A8" FontSize="12"/>
+                    <TextBlock x:Name="GraphTopRight" Text="100%" Foreground="#A8A8A8" FontSize="12" HorizontalAlignment="Right"/>
+                </Grid>
+
+                <!-- graph hosts share one container so the right-click "Change graph
+                     to" menu is reachable whichever host is visible -->
+                <Grid Grid.Row="1">
+                    <Grid.ContextMenu>
+                        <ContextMenu>
+                            <!-- Items are populated in code: CPU gets overall/logical
+                                 processors; GPU gets multi-engine + one item per engine. -->
+                            <MenuItem Header="Change graph to" x:Name="ChangeGraphMenu"/>
+                        </ContextMenu>
+                    </Grid.ContextMenu>
+
+                    <!-- single graph host (overall) -->
+                    <Border x:Name="BigGraphHost" Background="#141414" Margin="0,4"
+                            BorderBrush="#333" BorderThickness="1"/>
+                    <!-- per-core grid host (CPU logical processors view); populated in code -->
+                    <Border x:Name="CoreGridHost" Background="Transparent" Margin="0,4" Visibility="Collapsed"/>
+                    <!-- GPU composite host (engine graphs + memory graphs); populated in code -->
+                    <Border x:Name="GpuGraphHost" Background="Transparent" Margin="0,4" Visibility="Collapsed"/>
+                    <!-- disk composite host (active-time graph + transfer-rate graph); populated in code -->
+                    <Border x:Name="DiskGraphHost" Background="Transparent" Margin="0,4" Visibility="Collapsed"/>
+                </Grid>
+
+                <Grid Grid.Row="2">
+                    <TextBlock Text="60 seconds" Foreground="#A8A8A8" FontSize="12"/>
+                    <TextBlock Text="0" Foreground="#A8A8A8" FontSize="12" HorizontalAlignment="Right"/>
+                </Grid>
+            </Grid>
+
+            <!-- stats -->
+            <Grid Grid.Row="2">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- memory composition bar (memory only) — spans the full pane width, above the stats -->
+                <StackPanel x:Name="MemCompositionPanel" Grid.Row="0" Visibility="Collapsed" Margin="0,0,0,16">
+                    <TextBlock Text="Memory composition" Style="{StaticResource StatLabel}" Margin="0,0,0,4"/>
+                    <Border Height="34" CornerRadius="3" BorderBrush="#3A6FA8" BorderThickness="1" ClipToBounds="True">
+                        <Grid x:Name="MemBar">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition x:Name="MemBarInUse" Width="*"/>
+                                <ColumnDefinition x:Name="MemBarModified" Width="0"/>
+                                <ColumnDefinition x:Name="MemBarStandby" Width="0"/>
+                                <ColumnDefinition x:Name="MemBarFree" Width="0"/>
+                            </Grid.ColumnDefinitions>
+                            <!-- Cohesive blue bar, subtly stepped from In use to Free,
+                                 with thin divider lines at each segment boundary. -->
+                            <Border Grid.Column="0" Background="#4A86C5"/>
+                            <Border Grid.Column="1" Background="#3F77AE" BorderBrush="#6BA6DC" BorderThickness="1,0,0,0"/>
+                            <Border Grid.Column="2" Background="#366B9A" BorderBrush="#6BA6DC" BorderThickness="1,0,0,0"/>
+                            <Border Grid.Column="3" Background="#2C5882" BorderBrush="#6BA6DC" BorderThickness="1,0,0,0"/>
+                        </Grid>
+                    </Border>
+                    <!-- labels mirror the bar split: "Available" sits at the in-use boundary -->
+                    <Grid Margin="0,4,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition x:Name="MemLblInUse" Width="*"/>
+                            <ColumnDefinition x:Name="MemLblAvail" Width="0"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="MemBarLeftLbl" Grid.Column="0" Text="In use" Style="{StaticResource StatLabel}"/>
+                        <TextBlock x:Name="MemBarRightLbl" Grid.Column="1" Text="Available" Style="{StaticResource StatLabel}"/>
+                    </Grid>
+                </StackPanel>
+
+                <!-- live stats (left) + static info (right) -->
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition x:Name="InfoCol" Width="320"/></Grid.ColumnDefinitions>
+
+                    <Grid x:Name="LiveStats" Grid.Column="0" HorizontalAlignment="Left">
+                        <!-- fixed, snug columns so the readouts stay packed to the left
+                             (Task Manager style) instead of spreading across equal thirds -->
+                        <Grid.ColumnDefinitions><ColumnDefinition x:Name="StatCol0" Width="160"/><ColumnDefinition x:Name="StatCol1" Width="160"/><ColumnDefinition x:Name="StatCol2" Width="160"/></Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+
+                        <StackPanel Grid.Row="0" Grid.Column="0">
+                            <TextBlock x:Name="StatALabel" Text="Utilization" Style="{StaticResource StatLabel}"/>
+                            <TextBlock x:Name="StatA" Text="0%" Style="{StaticResource StatValue}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Row="0" Grid.Column="1">
+                            <TextBlock x:Name="StatBLabel" Text="Speed" Style="{StaticResource StatLabel}"/>
+                            <TextBlock x:Name="StatB" Text="0 GHz" Style="{StaticResource StatValue}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Row="0" Grid.Column="2">
+                            <TextBlock x:Name="StatCLabel" Text="" Style="{StaticResource StatLabel}"/>
+                            <TextBlock x:Name="StatC" Text="" Style="{StaticResource StatValue}"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,12,0,0">
+                            <TextBlock x:Name="StatDLabel" Text="Processes" Style="{StaticResource StatLabel}"/>
+                            <TextBlock x:Name="StatD" Text="0" Style="{StaticResource StatValue}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,12,0,0">
+                            <TextBlock x:Name="StatELabel" Text="Threads" Style="{StaticResource StatLabel}"/>
+                            <TextBlock x:Name="StatE" Text="0" Style="{StaticResource StatValue}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,12,0,0">
+                            <TextBlock x:Name="StatFLabel" Text="Handles" Style="{StaticResource StatLabel}"/>
+                            <TextBlock x:Name="StatF" Text="0" Style="{StaticResource StatValue}"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,12,0,0">
+                            <TextBlock x:Name="StatGLabel" Text="" Style="{StaticResource StatLabel}"/>
+                            <TextBlock x:Name="StatG" Text="" Style="{StaticResource StatValue}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Row="2" Grid.Column="1" Margin="0,12,0,0">
+                            <TextBlock x:Name="StatHLabel" Text="" Style="{StaticResource StatLabel}"/>
+                            <TextBlock x:Name="StatH" Text="" Style="{StaticResource StatValue}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Row="2" Grid.Column="2" Margin="0,12,0,0">
+                            <TextBlock x:Name="StatILabel" Text="" Style="{StaticResource StatLabel}"/>
+                            <TextBlock x:Name="StatI" Text="" Style="{StaticResource StatValue}"/>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- static info (right) -->
+                    <Grid Grid.Column="1" x:Name="InfoPanel">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock x:Name="InfoKey1" Text="Base speed:" Style="{StaticResource InfoKey}"/>
+                            <TextBlock x:Name="InfoKey2" Text="Sockets:" Style="{StaticResource InfoKey}"/>
+                            <TextBlock x:Name="InfoKey3" Text="Cores:" Style="{StaticResource InfoKey}"/>
+                            <TextBlock x:Name="InfoKey4" Text="Logical processors:" Style="{StaticResource InfoKey}"/>
+                            <TextBlock x:Name="InfoKey5" Text="Virtualization:" Style="{StaticResource InfoKey}"/>
+                            <TextBlock x:Name="InfoKey6" Text="L1 cache:" Style="{StaticResource InfoKey}"/>
+                            <TextBlock x:Name="InfoKey7" Text="L2 cache:" Style="{StaticResource InfoKey}"/>
+                            <TextBlock x:Name="InfoKey8" Text="L3 cache:" Style="{StaticResource InfoKey}"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Margin="24,0,0,0">
+                            <TextBlock x:Name="InfoVal1" Text="—" Style="{StaticResource InfoVal}"/>
+                            <TextBlock x:Name="InfoVal2" Text="—" Style="{StaticResource InfoVal}"/>
+                            <TextBlock x:Name="InfoVal3" Text="—" Style="{StaticResource InfoVal}"/>
+                            <TextBlock x:Name="InfoVal4" Text="—" Style="{StaticResource InfoVal}"/>
+                            <TextBlock x:Name="InfoVal5" Text="—" Style="{StaticResource InfoVal}"/>
+                            <TextBlock x:Name="InfoVal6" Text="—" Style="{StaticResource InfoVal}"/>
+                            <TextBlock x:Name="InfoVal7" Text="—" Style="{StaticResource InfoVal}"/>
+                            <TextBlock x:Name="InfoVal8" Text="—" Style="{StaticResource InfoVal}"/>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Grid>
+        </Grid>
+    </Grid>
+</UserControl>

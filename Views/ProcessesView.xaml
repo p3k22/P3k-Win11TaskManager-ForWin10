@@ -1,0 +1,295 @@
+<UserControl x:Class="Win11TaskMan.Views.ProcessesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:Win11TaskMan.Views"
+             xmlns:conv="clr-namespace:Win11TaskMan.Models"
+             Background="#1E1E1E" Foreground="#FFFFFF" FontSize="13">
+
+    <UserControl.Resources>
+        <conv:HeatConverter x:Key="Heat"/>
+        <conv:PowerHeatConverter x:Key="PowerHeat"/>
+
+        <Style TargetType="DataGrid">
+            <Setter Property="Background" Value="#1E1E1E"/>
+            <Setter Property="Foreground" Value="#F0F0F0"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="GridLinesVisibility" Value="None"/>
+            <Setter Property="RowBackground" Value="Transparent"/>
+            <Setter Property="HeadersVisibility" Value="Column"/>
+            <Setter Property="RowHeight" Value="30"/>
+            <Setter Property="EnableRowVirtualization" Value="True"/>
+        </Style>
+        <!-- transparent drag-to-resize gripper -->
+        <Style x:Key="ColHeaderGripper" TargetType="Thumb">
+            <Setter Property="Width" Value="8"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Cursor" Value="SizeWE"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Border Background="{TemplateBinding Background}"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="#1E1E1E"/>
+            <Setter Property="Foreground" Value="#C8C8C8"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="SeparatorVisibility" Value="Collapsed"/>
+            <Setter Property="VerticalContentAlignment" Value="Bottom"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Height" Value="52"/>
+            <!-- Clean template: content presenter spans the full column width,
+                 exactly matching the cell area, so centered header text lines up
+                 with centered cell text. The default template reserves right-edge
+                 space for the sort glyph, which shifts headers left of the cells. -->
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="DataGridColumnHeader">
+                        <Grid>
+                            <Border Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
+                            </Border>
+                            <Thumb x:Name="PART_LeftHeaderGripper" HorizontalAlignment="Left"
+                                   Margin="-4,0,0,0" Style="{StaticResource ColHeaderGripper}"/>
+                            <Thumb x:Name="PART_RightHeaderGripper" HorizontalAlignment="Right"
+                                   Margin="0,0,-4,0" Style="{StaticResource ColHeaderGripper}"/>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style TargetType="DataGridCell">
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#0F3E5E"/>
+                    <Setter Property="Foreground" Value="#FFFFFF"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <Style TargetType="DataGridRow">
+            <Setter Property="Background" Value="Transparent"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#262626"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- reusable heatmap header (big % over label) -->
+        <Style x:Key="HdrPct" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="Foreground" Value="#F0F0F0"/>
+        </Style>
+        <Style x:Key="HdrLbl" TargetType="TextBlock">
+            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="Foreground" Value="#C8C8C8"/>
+            <Setter Property="Margin" Value="0,0,0,2"/>
+        </Style>
+        <Style x:Key="NumCell" TargetType="TextBlock">
+            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+    </UserControl.Resources>
+
+    <DockPanel>
+        <Grid DockPanel.Dock="Top" Height="56" Margin="20,0,16,0">
+            <TextBlock Text="Processes" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center"/>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <Button Style="{StaticResource ToolButton}" Click="RunNew_Click">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE710;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Margin="0,0,8,0"/>
+                        <TextBlock Text="Run new task"/>
+                    </StackPanel>
+                </Button>
+                <Button x:Name="EndTaskBtn" Style="{StaticResource ToolButton}" Click="EndTask_Click" IsEnabled="False">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xE711;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Margin="0,0,8,0"/>
+                        <TextBlock Text="End task"/>
+                    </StackPanel>
+                </Button>
+                <Button Style="{StaticResource ToolButton}" IsEnabled="False">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="&#xEC0A;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Margin="0,0,8,0"/>
+                        <TextBlock Text="Efficiency mode"/>
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <Border DockPanel.Dock="Top" Margin="20,0,16,8" Background="#2B2B2B" CornerRadius="5"
+                Width="300" HorizontalAlignment="Left">
+            <TextBox x:Name="SearchBox" Background="Transparent" Foreground="White"
+                     BorderThickness="0" Padding="10,6" VerticalContentAlignment="Center"
+                     TextChanged="Search_Changed"/>
+        </Border>
+
+        <DataGrid x:Name="Grid" AutoGenerateColumns="False" IsReadOnly="True"
+                  SelectionMode="Single" CanUserResizeRows="False" CanUserSortColumns="True"
+                  HeadersVisibility="Column" RowHeaderWidth="0"
+                  SelectionChanged="Grid_SelectionChanged" Sorting="Grid_Sorting"
+                  MouseRightButtonUp="Grid_RightClick" Margin="12,0,0,0"
+                  SizeChanged="Grid_SizeChanged">
+            <DataGrid.Resources>
+                <ContextMenu x:Key="RowMenu">
+                    <MenuItem Header="End task" Click="EndTask_Click"/>
+                    <MenuItem Header="Open file location" Click="OpenLocation_Click"/>
+                    <MenuItem Header="Search online" Click="SearchOnline_Click"/>
+                    <Separator/>
+                    <MenuItem Header="Properties" Click="Properties_Click"/>
+                </ContextMenu>
+            </DataGrid.Resources>
+            <DataGrid.RowStyle>
+                <Style TargetType="DataGridRow">
+                    <Setter Property="ContextMenu" Value="{StaticResource RowMenu}"/>
+                    <Setter Property="Background" Value="Transparent"/>
+                    <Style.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Background" Value="#262626"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </DataGrid.RowStyle>
+            <DataGrid.GroupStyle>
+                <GroupStyle>
+                    <GroupStyle.HeaderTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" Margin="8,10,0,4">
+                                <TextBlock Text="{Binding Name}" FontSize="16" FontWeight="SemiBold"/>
+                                <TextBlock Text="{Binding ItemCount, StringFormat=' ({0})'}"
+                                           FontSize="16" FontWeight="SemiBold" Foreground="#AFAFAF"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </GroupStyle.HeaderTemplate>
+                </GroupStyle>
+            </DataGrid.GroupStyle>
+
+            <DataGrid.Columns>
+                <DataGridTemplateColumn x:Name="NameCol" Width="320" MinWidth="220" SortMemberPath="Name">
+                    <DataGridTemplateColumn.Header>
+                        <TextBlock Text="Name" Margin="22,0,0,2"/>
+                    </DataGridTemplateColumn.Header>
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Name}" Margin="22,0,0,0" VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <DataGridTemplateColumn Width="90">
+                    <DataGridTemplateColumn.Header><TextBlock Text="Status" Margin="0,0,0,2"/></DataGridTemplateColumn.Header>
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate><TextBlock/></DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- CPU -->
+                <DataGridTemplateColumn Width="92" SortMemberPath="Cpu">
+                    <DataGridTemplateColumn.Header>
+                        <StackPanel>
+                            <TextBlock x:Name="CpuHdr" Text="0%" Style="{StaticResource HdrPct}"/>
+                            <TextBlock Text="CPU" Style="{StaticResource HdrLbl}"/>
+                        </StackPanel>
+                    </DataGridTemplateColumn.Header>
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Border Background="{Binding Cpu, Converter={StaticResource Heat}, ConverterParameter=100}">
+                                <TextBlock Text="{Binding CpuText}" Style="{StaticResource NumCell}"/>
+                            </Border>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- Memory -->
+                <DataGridTemplateColumn Width="100" SortMemberPath="MemBytes">
+                    <DataGridTemplateColumn.Header>
+                        <StackPanel>
+                            <TextBlock x:Name="MemHdr" Text="0%" Style="{StaticResource HdrPct}"/>
+                            <TextBlock Text="Memory" Style="{StaticResource HdrLbl}"/>
+                        </StackPanel>
+                    </DataGridTemplateColumn.Header>
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Border Background="{Binding MemBytes, Converter={StaticResource Heat}, ConverterParameter=2000000000}">
+                                <TextBlock Text="{Binding MemText}" Style="{StaticResource NumCell}"/>
+                            </Border>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- Disk -->
+                <DataGridTemplateColumn Width="92" SortMemberPath="DiskBps">
+                    <DataGridTemplateColumn.Header>
+                        <StackPanel>
+                            <TextBlock x:Name="DiskHdr" Text="0%" Style="{StaticResource HdrPct}"/>
+                            <TextBlock Text="Disk" Style="{StaticResource HdrLbl}"/>
+                        </StackPanel>
+                    </DataGridTemplateColumn.Header>
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Border Background="{Binding DiskBps, Converter={StaticResource Heat}, ConverterParameter=20000000}">
+                                <TextBlock Text="{Binding DiskText}" Style="{StaticResource NumCell}"/>
+                            </Border>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- Network (placeholder, see notes) -->
+                <DataGridTemplateColumn Width="92">
+                    <DataGridTemplateColumn.Header>
+                        <StackPanel>
+                            <TextBlock x:Name="NetHdr" Text="0%" Style="{StaticResource HdrPct}"/>
+                            <TextBlock Text="Network" Style="{StaticResource HdrLbl}"/>
+                        </StackPanel>
+                    </DataGridTemplateColumn.Header>
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding NetText}" Style="{StaticResource NumCell}"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- GPU -->
+                <DataGridTemplateColumn Width="80" SortMemberPath="Gpu">
+                    <DataGridTemplateColumn.Header>
+                        <StackPanel>
+                            <TextBlock x:Name="GpuHdr" Text="0%" Style="{StaticResource HdrPct}"/>
+                            <TextBlock Text="GPU" Style="{StaticResource HdrLbl}"/>
+                        </StackPanel>
+                    </DataGridTemplateColumn.Header>
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Border Background="{Binding Gpu, Converter={StaticResource Heat}, ConverterParameter=100}">
+                                <TextBlock Text="{Binding GpuText}" Style="{StaticResource NumCell}"/>
+                            </Border>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- Power usage -->
+                <DataGridTemplateColumn Width="120" SortMemberPath="Cpu">
+                    <DataGridTemplateColumn.Header><TextBlock Text="Power usage" Margin="0,0,0,2" TextAlignment="Center"/></DataGridTemplateColumn.Header>
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Border Background="{Binding PowerText, Converter={StaticResource PowerHeat}}">
+                                <TextBlock Text="{Binding PowerText}" Style="{StaticResource NumCell}"/>
+                            </Border>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+    </DockPanel>
+</UserControl>

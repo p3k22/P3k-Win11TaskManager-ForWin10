@@ -1,0 +1,86 @@
+<Window x:Class="Win11TaskMan.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:Win11TaskMan"
+        Title="Task Manager" Height="760" Width="1180"
+        Background="#1E1E1E" Foreground="#FFFFFF"
+        FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="13"
+        WindowStartupLocation="CenterScreen">
+
+    <Window.Resources>
+        <!-- Sidebar nav button -->
+        <Style x:Key="NavButton" TargetType="RadioButton">
+            <Setter Property="Foreground" Value="#E6E6E6"/>
+            <Setter Property="Height" Value="40"/>
+            <Setter Property="Margin" Value="6,1"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="bg" CornerRadius="5" Background="Transparent">
+                            <Grid>
+                                <Border x:Name="accent" Width="3" HorizontalAlignment="Left"
+                                        Height="18" CornerRadius="2" Background="#4CC2FF"
+                                        Visibility="Collapsed"/>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0">
+                                    <TextBlock Text="{TemplateBinding Tag}" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                               FontSize="16" Width="26" VerticalAlignment="Center"/>
+                                    <ContentPresenter VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="#2A2A2A"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="bg" Property="Background" Value="#2D2D2D"/>
+                                <Setter TargetName="accent" Property="Visibility" Value="Visible"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="248"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Sidebar -->
+        <DockPanel Grid.Column="0" Background="#1A1A1A">
+            <!-- title row -->
+            <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="14,12,0,12">
+                <TextBlock Text="&#xE700;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                           FontSize="16" Margin="0,0,12,0" VerticalAlignment="Center"/>
+                <TextBlock Text="&#xE9D9;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                           FontSize="15" Foreground="#4CC2FF" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                <TextBlock Text="Task Manager" FontSize="14" VerticalAlignment="Center"/>
+            </StackPanel>
+
+            <!-- settings pinned bottom -->
+            <RadioButton x:Name="NavSettings" DockPanel.Dock="Bottom" GroupName="nav" Style="{StaticResource NavButton}"
+                         Content="Settings" Tag="&#xE713;" Margin="6,1,6,10" Checked="Nav_Checked"/>
+
+            <StackPanel>
+                <RadioButton x:Name="NavProcesses" GroupName="nav" Style="{StaticResource NavButton}"
+                             Content="Processes" Tag="&#xE71D;" IsChecked="True"
+                             Checked="Nav_Checked"/>
+                <RadioButton x:Name="NavPerformance" GroupName="nav" Style="{StaticResource NavButton}"
+                             Content="Performance" Tag="&#xE9D9;" Checked="Nav_Checked"/>
+                <RadioButton x:Name="NavStartup" GroupName="nav" Style="{StaticResource NavButton}"
+                             Content="Startup apps" Tag="&#xE945;" Checked="Nav_Checked"/>
+                <RadioButton x:Name="NavUsers" GroupName="nav" Style="{StaticResource NavButton}"
+                             Content="Users" Tag="&#xE716;" Checked="Nav_Checked"/>
+                <RadioButton x:Name="NavDetails" GroupName="nav" Style="{StaticResource NavButton}"
+                             Content="Details" Tag="&#xE8FD;" Checked="Nav_Checked"/>
+                <RadioButton x:Name="NavServices" GroupName="nav" Style="{StaticResource NavButton}"
+                             Content="Services" Tag="&#xF158;" Checked="Nav_Checked"/>
+            </StackPanel>
+        </DockPanel>
+
+        <ContentControl x:Name="Host" Grid.Column="1"/>
+    </Grid>
+</Window>

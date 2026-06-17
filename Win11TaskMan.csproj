@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>Win11TaskMan</AssemblyName>
+    <!-- Native SYSTEM_PROCESS_INFORMATION offsets below are 64-bit only -->
+    <PlatformTarget>x64</PlatformTarget>
+    <!-- App icon for the .exe (Explorer / pinned shortcuts). Drop an AppIcon.ico in
+         the repo root and it's picked up automatically; the Condition keeps the build
+         green until you do. The window/taskbar uses the same icon at runtime (below). -->
+    <ApplicationIcon Condition="Exists('AppIcon.ico')">AppIcon.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- CPU temperature (Ryzen Tctl/Tdie) via its bundled kernel driver; needs elevation -->
+    <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.4" />
+  </ItemGroup>
+
+  <ItemGroup Condition="Exists('AppIcon.ico')">
+    <!-- Embedded so MainWindow can load it as the window/taskbar icon at runtime. -->
+    <Resource Include="AppIcon.ico" />
+  </ItemGroup>
+
+</Project>
