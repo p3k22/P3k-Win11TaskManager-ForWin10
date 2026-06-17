@@ -48,6 +48,47 @@ internal static class AppSettings
         set => SetBool(nameof(AlwaysOnTop), value);
     }
 
+    /// <summary>
+    /// Sentinel for a window coordinate that has never been saved. Left/Top use it so
+    /// a first run (no stored position) can fall back to centring on screen.
+    /// </summary>
+    public const int UnsetCoordinate = int.MinValue;
+
+    /// <summary>Main window width in device-independent pixels. Defaults to the XAML size.</summary>
+    public static int WindowWidth
+    {
+        get => GetInt(nameof(WindowWidth), 1180);
+        set => SetInt(nameof(WindowWidth), value);
+    }
+
+    /// <summary>Main window height in device-independent pixels. Defaults to the XAML size.</summary>
+    public static int WindowHeight
+    {
+        get => GetInt(nameof(WindowHeight), 760);
+        set => SetInt(nameof(WindowHeight), value);
+    }
+
+    /// <summary>Main window left edge. <see cref="UnsetCoordinate"/> when never saved.</summary>
+    public static int WindowLeft
+    {
+        get => GetInt(nameof(WindowLeft), UnsetCoordinate);
+        set => SetInt(nameof(WindowLeft), value);
+    }
+
+    /// <summary>Main window top edge. <see cref="UnsetCoordinate"/> when never saved.</summary>
+    public static int WindowTop
+    {
+        get => GetInt(nameof(WindowTop), UnsetCoordinate);
+        set => SetInt(nameof(WindowTop), value);
+    }
+
+    /// <summary>Whether the main window was maximized when it last closed.</summary>
+    public static bool WindowMaximized
+    {
+        get => GetBool(nameof(WindowMaximized));
+        set => SetBool(nameof(WindowMaximized), value);
+    }
+
     private static bool GetBool(string name)
     {
         try
