@@ -115,12 +115,6 @@ restores the original Task Manager.
 - [LibreHardwareMonitorLib](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor) — CPU
   temperature sensing.
 
-## App icon
-
-Drop an `AppIcon.ico` in the repo root and it's used automatically — for the executable
-(Explorer / pinned shortcuts) and, at runtime, for the window and taskbar. The build works
-without one (the `.exe` then just uses the default icon); no Microsoft assets are bundled.
-
 ## License
 
 Released under the [MIT License](LICENSE) — free to use, modify and redistribute.
