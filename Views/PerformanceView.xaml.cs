@@ -109,8 +109,7 @@ public partial class PerformanceView : UserControl
             string path = HistoryPath;
             System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path)!);
             var vals = _cpuBig.Export().Select(v => v.ToString("R", System.Globalization.CultureInfo.InvariantCulture));
-            System.IO.File.WriteAllText(path, DateTime.UtcNow.Ticks + "
-" + string.Join(",", vals));
+            System.IO.File.WriteAllText(path, DateTime.UtcNow.Ticks + Environment.NewLine + string.Join(",", vals));
         }
         catch { /* best effort */ }
     }
