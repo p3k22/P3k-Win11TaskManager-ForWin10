@@ -34,7 +34,7 @@ public sealed class GpuCounters : IDisposable
     [DllImport("pdh.dll")]
     private static extern uint PdhCloseQuery(IntPtr query);
 
-    private IntPtr _query, _util, _dedicated, _shared;
+    private IntPtr _query, _util, _dedicated, _shared, _procDedicated, _procShared, _procCommitted;
 
     public bool Available { get; }
     public string Luid { get; private set; } = ""; // "0xHIGH_0xLOW" from instance names
@@ -51,6 +51,9 @@ public sealed class GpuCounters : IDisposable
                 @"\GPU Adapter Memory(*)\Dedicated Usage", IntPtr.Zero, out _dedicated);
             PdhAddEnglishCounterW(_query,
                 @"\GPU Adapter Memory(*)\Shared Usage", IntPtr.Zero, out _shared);
+            PdhAddEnglishCounterW(_query, @"\GPU Process Memory(*)\Dedicated Usage", IntPtr.Zero, out _procDedicated);
+            PdhAddEnglishCounterW(_query, @"\GPU Process Memory(*)\Shared Usage", IntPtr.Zero, out _procShared);
+            PdhAddEnglishCounterW(_query, @"\GPU Process Memory(*)\Total Committed", IntPtr.Zero, out _procCommitted);
             if (!util) return;
             PdhCollectQueryData(_query); // prime the baseline sample
             Available = true;
@@ -60,7 +63,9 @@ public sealed class GpuCounters : IDisposable
 
     public readonly record struct Reading(
         double UtilPercent, ulong DedicatedUsedBytes, ulong SharedUsedBytes,
-        Dictionary<int, double> PerPid, Dictionary<int, double> NodeUtil);
+        Dictionary<int, double> PerPid, Dictionary<int, double> NodeUtil,
+        Dictionary<int, long>? ProcDedicated = null, Dictionary<int, long>? ProcShared = null,
+        Dictionary<int, long>? ProcCommitted = null);
 
     public Reading Read()
     {
@@ -105,7 +110,19 @@ public sealed class GpuCounters : IDisposable
             nodeUtil[eng] = Math.Min(v, 100);
         }
 
-        return new Reading(Math.Min(overall, 100), SumMem(_dedicated), SumMem(_shared), perPid, nodeUtil);
+        return new Reading(Math.Min(overall, 100), SumMem(_dedicated), SumMem(_shared), perPid, nodeUtil,
+            PerPidMem(_procDedicated), PerPidMem(_procShared), PerPidMem(_procCommitted));
+    }
+
+    private static Dictionary<int, long> PerPidMem(IntPtr counter)
+    {
+        var d = new Dictionary<int, long>();
+        foreach (var (name, val) in ReadArray(counter))
+        {
+            int pid = ParsePid(name);
+            if (pid > 0 && val > 0) d[pid] = d.TryGetValue(pid, out long c) ? c + (long)val : (long)val;
+        }
+        return d;
     }
 
     private static ulong SumMem(IntPtr counter)

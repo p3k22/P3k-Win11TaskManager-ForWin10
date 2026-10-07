@@ -9,7 +9,9 @@ namespace Win11TaskMan.Services;
 
 public sealed record ProcSample(
     int Pid, string Name, double Cpu, long MemBytes, double DiskBps,
-    uint Threads, uint Handles, bool IsApp, double Gpu, uint SessionId);
+    uint Threads, uint Handles, bool IsApp, double Gpu, uint SessionId,
+    ProcExtra Extra = default,
+    long GpuDedicated = 0, long GpuShared = 0, long GpuCommitted = 0);
 
 public sealed record SystemSample(
     double CpuPercent, double MemPercent, ulong MemUsedBytes, ulong MemTotalBytes,
@@ -144,7 +146,11 @@ public sealed class SystemMonitor : IDisposable
                 }
                 double pgpu = gpu.PerPid.TryGetValue(p.Pid, out double gv) ? gv : 0;
                 procs.Add(new ProcSample(p.Pid, Prettify(p.Name), cpu, p.WorkingSet,
-                                         disk, p.Threads, p.Handles, appPids.Contains(p.Pid), pgpu, p.SessionId));
+                                         disk, p.Threads, p.Handles, appPids.Contains(p.Pid), pgpu, p.SessionId,
+                                         p.Extra,
+                                         gpu.ProcDedicated?.GetValueOrDefault(p.Pid) ?? 0,
+                                         gpu.ProcShared?.GetValueOrDefault(p.Pid) ?? 0,
+                                         gpu.ProcCommitted?.GetValueOrDefault(p.Pid) ?? 0));
             }
             _prev = next;
 

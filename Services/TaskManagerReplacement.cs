@@ -51,6 +51,41 @@ internal static class TaskManagerReplacement
             key.DeleteValue(DebuggerValue, throwOnMissingValue: false);
     }
 
+    /// <summary>
+    /// Starts the real Windows Task Manager. While the IFEO hook is set, launching
+    /// taskmgr.exe would just start this app again, so the hook is lifted for a few
+    /// seconds by an elevated helper (UAC prompt unless already elevated) and restored.
+    /// </summary>
+    public static void LaunchOriginal()
+    {
+        string taskmgr = Path.Combine(Environment.SystemDirectory, "taskmgr.exe");
+        if (!IsHooked())
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(taskmgr) { UseShellExecute = true });
+            return;
+        }
+
+        string script =
+            "$k='HKLM:\\" + IfeoKey + "';" +
+            "$v=(Get-ItemProperty $k).Debugger;" +
+            "Remove-ItemProperty $k Debugger;" +
+            "try{Start-Process '" + taskmgr + "';Start-Sleep 4}finally{Set-ItemProperty $k Debugger $v}";
+        string encoded = Convert.ToBase64String(System.Text.Encoding.Unicode.GetBytes(script));
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("powershell.exe",
+            $"-NoProfile -WindowStyle Hidden -EncodedCommand {encoded}")
+        { UseShellExecute = true, Verb = "runas", WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden });
+    }
+
+    private static bool IsHooked()
+    {
+        try
+        {
+            using var key = Registry.LocalMachine.OpenSubKey(IfeoKey);
+            return key?.GetValue(DebuggerValue) is string d && d.Length > 0;
+        }
+        catch { return false; }
+    }
+
     private static bool PointsToThisApp(string debugger)
     {
         string exe = Environment.ProcessPath ?? "";

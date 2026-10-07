@@ -46,6 +46,14 @@
             <TextBlock x:Name="ReplaceNote" Foreground="#A8A8A8" TextWrapping="Wrap" FontSize="12" Margin="0,0,0,8"
                        Text="When on, Ctrl+Shift+Esc, the taskbar menu and Ctrl+Alt+Del open this app instead of the Windows Task Manager. Changing this needs administrator rights."/>
 
+            <Button x:Name="OpenOriginalBtn" Style="{StaticResource ToolButton}" Click="OpenOriginal_Click"
+                    HorizontalAlignment="Left" Background="#2B2B2B" Margin="0,4,0,8">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="&#xE8A7;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets" Margin="0,0,8,0"/>
+                    <TextBlock Text="Open Original TaskManager"/>
+                </StackPanel>
+            </Button>
+
             <TextBlock Text="Privileges" Style="{StaticResource Section}"/>
             <TextBlock x:Name="AdminNote" Foreground="#A8A8A8" TextWrapping="Wrap" Margin="0,0,0,8"
                        Text="CPU temperature and full service/startup control need administrator rights."/>

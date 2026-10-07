@@ -89,6 +89,26 @@ internal static class AppSettings
         set => SetBool(nameof(WindowMaximized), value);
     }
 
+    /// <summary>Comma-separated ids of the visible Details columns; null until the user customises them.</summary>
+    public static string? DetailColumns
+    {
+        get
+        {
+            try { using var key = Registry.CurrentUser.OpenSubKey(KeyPath); return key?.GetValue(nameof(DetailColumns)) as string; }
+            catch { return null; }
+        }
+        set
+        {
+            try
+            {
+                using var key = Registry.CurrentUser.CreateSubKey(KeyPath);
+                if (value == null) key?.DeleteValue(nameof(DetailColumns), false);
+                else key?.SetValue(nameof(DetailColumns), value, RegistryValueKind.String);
+            }
+            catch { /* ignore — setting just won't persist */ }
+        }
+    }
+
     private static bool GetBool(string name)
     {
         try

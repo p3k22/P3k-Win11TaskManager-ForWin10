@@ -85,6 +85,15 @@ public partial class SettingsView : UserControl
         }
     }
 
+    private void OpenOriginal_Click(object sender, RoutedEventArgs e)
+    {
+        try { TaskManagerReplacement.LaunchOriginal(); }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "Task Manager", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+    }
+
     private void SetReplaceChecked(bool value)
     {
         _initializing = true;

@@ -25,14 +25,29 @@ internal static partial class NativeMethods
     {
         [FieldOffset(0)]   public uint NextEntryOffset;
         [FieldOffset(4)]   public uint NumberOfThreads;
+        [FieldOffset(8)]   public long WorkingSetPrivateSize;
+        [FieldOffset(16)]  public uint HardFaultCount;
+        [FieldOffset(24)]  public ulong CycleTime;
+        [FieldOffset(32)]  public long CreateTime;        // FILETIME
         [FieldOffset(40)]  public long UserTime;          // 100ns units
         [FieldOffset(48)]  public long KernelTime;        // 100ns units
         [FieldOffset(56)]  public ushort ImageNameLength; // bytes
         [FieldOffset(64)]  public IntPtr ImageNameBuffer; // PWSTR
+        [FieldOffset(72)]  public int BasePriority;
         [FieldOffset(80)]  public IntPtr UniqueProcessId;
         [FieldOffset(96)]  public uint HandleCount;
         [FieldOffset(100)] public uint SessionId;
+        [FieldOffset(120)] public long VirtualSize;
+        [FieldOffset(128)] public uint PageFaultCount;
+        [FieldOffset(136)] public long PeakWorkingSetSize;
         [FieldOffset(144)] public long WorkingSetSize;    // bytes
+        [FieldOffset(160)] public long QuotaPagedPoolUsage;
+        [FieldOffset(176)] public long QuotaNonPagedPoolUsage;
+        [FieldOffset(184)] public long PagefileUsage;
+        [FieldOffset(200)] public long PrivatePageCount;
+        [FieldOffset(208)] public long ReadOperationCount;
+        [FieldOffset(216)] public long WriteOperationCount;
+        [FieldOffset(224)] public long OtherOperationCount;
         [FieldOffset(232)] public long ReadTransferCount; // bytes
         [FieldOffset(240)] public long WriteTransferCount;// bytes
         [FieldOffset(248)] public long OtherTransferCount;// bytes
@@ -40,7 +55,8 @@ internal static partial class NativeMethods
 
     public readonly record struct RawProcess(
         int Pid, string Name, long CpuTime100ns,
-        long WorkingSet, long IoBytes, uint Threads, uint Handles, uint SessionId);
+        long WorkingSet, long IoBytes, uint Threads, uint Handles, uint SessionId,
+        ProcExtra Extra = default);
 
     /// <summary>Snapshot every process in a single syscall. Cheap; safe to call ~1Hz.</summary>
     public static List<RawProcess> SnapshotProcesses()
@@ -85,7 +101,14 @@ internal static partial class NativeMethods
                     IoBytes: spi.ReadTransferCount + spi.WriteTransferCount + spi.OtherTransferCount,
                     Threads: spi.NumberOfThreads,
                     Handles: spi.HandleCount,
-                    SessionId: spi.SessionId));
+                    SessionId: spi.SessionId,
+                    Extra: new ProcExtra(
+                        spi.PrivatePageCount, spi.WorkingSetPrivateSize, spi.PeakWorkingSetSize, spi.VirtualSize,
+                        spi.PagefileUsage, spi.PageFaultCount, spi.HardFaultCount, spi.BasePriority,
+                        spi.ReadTransferCount, spi.WriteTransferCount, spi.OtherTransferCount,
+                        spi.ReadOperationCount, spi.WriteOperationCount, spi.OtherOperationCount,
+                        spi.QuotaPagedPoolUsage, spi.QuotaNonPagedPoolUsage,
+                        spi.KernelTime + spi.UserTime, spi.CreateTime, spi.CycleTime)));
 
                 // Stop on the terminator, and bail on any offset that doesn't move
                 // strictly forward (0, or a value large enough to wrap) rather than
