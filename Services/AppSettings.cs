@@ -109,6 +109,26 @@ internal static class AppSettings
         }
     }
 
+    /// <summary>Selected Performance page view: "Metric|diskIndex|cpuLogical|gpuEngine".</summary>
+    public static string? PerformanceView
+    {
+        get
+        {
+            try { using var key = Registry.CurrentUser.OpenSubKey(KeyPath); return key?.GetValue(nameof(PerformanceView)) as string; }
+            catch { return null; }
+        }
+        set
+        {
+            try
+            {
+                using var key = Registry.CurrentUser.CreateSubKey(KeyPath);
+                if (value == null) key?.DeleteValue(nameof(PerformanceView), false);
+                else key?.SetValue(nameof(PerformanceView), value, RegistryValueKind.String);
+            }
+            catch { /* ignore — setting just won't persist */ }
+        }
+    }
+
     private static bool GetBool(string name)
     {
         try

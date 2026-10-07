@@ -73,17 +73,23 @@ public sealed class GraphControl : FrameworkElement
     }
 
     /// <summary>Primary series, oldest sample first.</summary>
-    public double[] Export()
+    public double[] Export() => Ordered(_data);
+
+    /// <summary>Secondary (dashed) series, oldest first; null for single-series graphs.</summary>
+    public double[]? Export2() => _data2 == null ? null : Ordered(_data2);
+
+    private double[] Ordered(double[] src)
     {
-        var r = new double[_data.Length];
-        for (int i = 0; i < r.Length; i++) r[i] = _data[(_head + i) % _data.Length];
+        var r = new double[src.Length];
+        for (int i = 0; i < r.Length; i++) r[i] = src[(_head + i) % src.Length];
         return r;
     }
 
     /// <summary>Replay saved samples (oldest first) into the graph.</summary>
-    public void Import(double[] samples)
+    public void Import(double[] primary, double[]? secondary = null)
     {
-        foreach (double v in samples) Push(v);
+        for (int i = 0; i < primary.Length; i++)
+            Store(primary[i], secondary != null && i < secondary.Length ? secondary[i] : primary[i]);
     }
 
     /// <summary>Push one value (single-series graphs).</summary>

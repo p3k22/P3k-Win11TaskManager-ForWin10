@@ -88,28 +88,71 @@ public partial class PerformanceView : UserControl
         LoadDisks();
         LoadStaticGpuInfo();
         LoadStaticMemInfo();
+        LoadHistory();
+        RestoreViewState();
         ApplyMetric();
+        _restoring = false;
 
         // Subscribe for the view's whole lifetime (MainWindow caches it and builds it
         // at startup) so the graphs keep collecting history while another tab is shown.
-        LoadHistory();
         monitor.Updated += OnSnapshot;
         monitor.NetUpdated += OnNet;
     }
 
-    // CPU graph history survives restarts: saved on close, replayed on launch.
-    // The graph only spans 60 samples, so a closed-time gap would wipe it; none is shown.
+    // ---- persistence: graph history + selected view survive restarts ----
     private static string HistoryPath => System.IO.Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Win11TaskMan", "cpu-history.txt");
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Win11TaskMan", "graph-history.txt");
+
+    private readonly Dictionary<string, (double[] a, double[]? b)> _saved = new();
+    private bool _restoring = true;
+    private bool _pendingGpu;
+    private int? _pendingGpuOrdinal;
+
+    private IEnumerable<(string key, GraphControl g)> AllGraphs()
+    {
+        yield return ("cpu", _cpuBig); yield return ("cpuS", _cpuSpark);
+        yield return ("mem", _memBig); yield return ("memS", _memSpark);
+        yield return ("net", _netBig); yield return ("netS", _netSpark);
+        yield return ("gpu", _gpuBig); yield return ("gpuS", _gpuSpark);
+        yield return ("gpuDed", _gpuDedicatedGraph); yield return ("gpuShared", _gpuSharedGraph);
+        yield return ("gpuEngBig", _gpuEngineBig);
+        for (int i = 0; i < _coreGraphs.Length; i++) yield return ($"core{i}", _coreGraphs[i]);
+        foreach (var d in _disks)
+        {
+            yield return ($"disk{d.Index}.s", d.Spark);
+            yield return ($"disk{d.Index}.a", d.ActiveBig);
+            yield return ($"disk{d.Index}.x", d.XferBig);
+        }
+        foreach (var (o, cell) in _engineGraphs) yield return ($"eng{o}", cell.graph);
+    }
+
+    // Replay saved samples into a graph once; entries are consumed so a rebuilt graph isn't refilled.
+    private void Restore(string key, GraphControl g)
+    {
+        if (_saved.Remove(key, out var d)) g.Import(d.a, d.b);
+    }
+
+    private static string Join(double[] v)
+        => string.Join(",", v.Select(x => x.ToString("R", System.Globalization.CultureInfo.InvariantCulture)));
+
+    private static double[] Split(string t)
+        => t.Split(',', StringSplitOptions.RemoveEmptyEntries)
+            .Select(x => double.Parse(x, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
 
     public void SaveHistory()
     {
+        SaveViewState();
         try
         {
             string path = HistoryPath;
             System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path)!);
-            var vals = _cpuBig.Export().Select(v => v.ToString("R", System.Globalization.CultureInfo.InvariantCulture));
-            System.IO.File.WriteAllText(path, DateTime.UtcNow.Ticks + Environment.NewLine + string.Join(",", vals));
+            var lines = new List<string>();
+            foreach (var (key, g) in AllGraphs())
+                lines.Add(key + "\t" + Join(g.Export()) + "\t" + (g.Export2() is { } b ? Join(b) : ""));
+            // graphs not built this session (e.g. per-core) keep their previously saved data
+            foreach (var (key, d) in _saved)
+                lines.Add(key + "\t" + Join(d.a) + "\t" + (d.b != null ? Join(d.b) : ""));
+            System.IO.File.WriteAllLines(path, lines);
         }
         catch { /* best effort */ }
     }
@@ -118,15 +161,41 @@ public partial class PerformanceView : UserControl
     {
         try
         {
-            var lines = System.IO.File.ReadAllLines(HistoryPath);
-            if (lines.Length < 2) return;
-            var samples = lines[1].Split(',', StringSplitOptions.RemoveEmptyEntries)
-                .Select(t => double.Parse(t, System.Globalization.CultureInfo.InvariantCulture)).ToList();
-            var tail = samples.Skip(Math.Max(0, samples.Count - 60)).ToArray();
-            _cpuBig.Import(tail);
-            _cpuSpark.Import(tail);
+            foreach (var line in System.IO.File.ReadAllLines(HistoryPath))
+            {
+                var parts = line.Split('\t');
+                if (parts.Length < 2) continue;
+                _saved[parts[0]] = (Split(parts[1]), parts.Length > 2 && parts[2].Length > 0 ? Split(parts[2]) : null);
+            }
         }
         catch { /* missing or corrupt history -> start empty */ }
+        foreach (var (key, g) in AllGraphs().ToList()) Restore(key, g);
+    }
+
+    private void SaveViewState()
+    {
+        if (_restoring) return;
+        int disk = _metric == Metric.Disk && _selectedDisk != null ? _selectedDisk.Index : -1;
+        AppSettings.PerformanceView = $"{_metric}|{disk}|{(_cpuLogical ? 1 : 0)}|{_gpuSingleOrdinal ?? -1}";
+    }
+
+    private void RestoreViewState()
+    {
+        var parts = (AppSettings.PerformanceView ?? "").Split('|');
+        if (parts.Length < 4 || !Enum.TryParse(parts[0], out Metric metric)) return;
+        int.TryParse(parts[1], out int disk);
+        int.TryParse(parts[3], out int eng);
+        if (parts[2] == "1") { _cpuLogical = true; BuildCoreGrid(); }
+        if (eng >= 0) _pendingGpuOrdinal = eng;
+        switch (metric)
+        {
+            case Metric.Memory: CardMem.IsChecked = true; break;
+            case Metric.Network: CardNet.IsChecked = true; break;
+            case Metric.Gpu: _pendingGpu = true; break;   // card enables once a GPU sample arrives
+            case Metric.Disk:
+                if (_disks.FirstOrDefault(d => d.Index == disk) is { } du) du.Card.IsChecked = true;
+                break;
+        }
     }
 
     // Network arrives on its own faster, drop-free cadence (SystemMonitor.NetTick), so the
@@ -177,7 +246,11 @@ public partial class PerformanceView : UserControl
 
         if (snap.Gpu.Available)
         {
-            if (!_gpuEnabled) { _gpuEnabled = true; CardGpu.IsEnabled = true; CardGpu.Opacity = 1; }
+            if (!_gpuEnabled)
+            {
+                _gpuEnabled = true; CardGpu.IsEnabled = true; CardGpu.Opacity = 1;
+                if (_pendingGpu) { _pendingGpu = false; Dispatcher.BeginInvoke(() => CardGpu.IsChecked = true); }
+            }
             _gpuSpark.Push(snap.Gpu.UtilPercent / 100.0);
             _gpuBig.Push(snap.Gpu.UtilPercent / 100.0);
             GpuCardSub.Text = $"{snap.Gpu.UtilPercent:0}%";
@@ -306,6 +379,8 @@ public partial class PerformanceView : UserControl
                     : sender == CardGpu ? Metric.Gpu
                     : Metric.Cpu;
         }
+        if (!_restoring) _pendingGpu = false;
+        SaveViewState();
         ApplyMetric();
         if (_last is { } snap) UpdateLive(snap);
     }
@@ -465,6 +540,7 @@ public partial class PerformanceView : UserControl
     {
         _cpuLogical = logical;
         if (logical) BuildCoreGrid();
+        SaveViewState();
         ApplyMetric();
         if (_last is { } snap) UpdateLive(snap);
     }
@@ -472,6 +548,7 @@ public partial class PerformanceView : UserControl
     private void SetGpuEngine(int? ordinal)
     {
         _gpuSingleOrdinal = ordinal;
+        SaveViewState();
         ApplyMetric();
         if (_last is { } snap) UpdateLive(snap);
     }
@@ -503,6 +580,7 @@ public partial class PerformanceView : UserControl
         {
             var g = new GraphControl(CpuAccent, 60) { ShowGrid = false };
             _coreGraphs[i] = g;
+            Restore($"core{i}", g);
             grid.Children.Add(new Border
             {
                 Margin = new Thickness(2),
@@ -546,6 +624,9 @@ public partial class PerformanceView : UserControl
             engineGrid.Children.Add(new Border { Margin = new Thickness(2), Child = EngineCell(lbl, pct, g) });
         }
         _gpuEngineGridHost = new Border { Child = engineGrid };
+        foreach (var (o, cell) in _engineGraphs) Restore($"eng{o}", cell.graph);
+        if (_pendingGpuOrdinal is int po && _gpuShown.Any(x => x.ordinal == po)) _gpuSingleOrdinal = po;
+        _pendingGpuOrdinal = null;
 
         // Single-engine host: one large graph that mirrors the selected engine.
         _gpuSingleLabel = new TextBlock { Text = "", Foreground = Gray, FontSize = 11 };
