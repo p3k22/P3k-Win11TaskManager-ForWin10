@@ -48,7 +48,7 @@ public partial class MainWindow : Window
             if (Host.Content == null) Host.Content = _processes ??= new ProcessesView(_monitor);
             _performance ??= new PerformanceView(_monitor); // start graph history from launch
         };
-        Closing += (_, _) => SaveWindowPlacement();
+        Closing += (_, _) => { SaveWindowPlacement(); _performance?.SaveHistory(); };
         Closed += (_, _) => _monitor.Dispose();
     }
 

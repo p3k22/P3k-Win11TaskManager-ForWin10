@@ -72,6 +72,20 @@ public sealed class GraphControl : FrameworkElement
         }
     }
 
+    /// <summary>Primary series, oldest sample first.</summary>
+    public double[] Export()
+    {
+        var r = new double[_data.Length];
+        for (int i = 0; i < r.Length; i++) r[i] = _data[(_head + i) % _data.Length];
+        return r;
+    }
+
+    /// <summary>Replay saved samples (oldest first) into the graph.</summary>
+    public void Import(double[] samples)
+    {
+        foreach (double v in samples) Push(v);
+    }
+
     /// <summary>Push one value (single-series graphs).</summary>
     public void Push(double value) => Store(value, value);
 

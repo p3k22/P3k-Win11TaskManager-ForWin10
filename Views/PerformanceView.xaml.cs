@@ -92,8 +92,44 @@ public partial class PerformanceView : UserControl
 
         // Subscribe for the view's whole lifetime (MainWindow caches it and builds it
         // at startup) so the graphs keep collecting history while another tab is shown.
+        LoadHistory();
         monitor.Updated += OnSnapshot;
         monitor.NetUpdated += OnNet;
+    }
+
+    // CPU graph history survives restarts: saved on close, replayed on launch with the
+    // time the app was closed shown as a gap (zeros) so the trace stays honest.
+    private static string HistoryPath => System.IO.Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Win11TaskMan", "cpu-history.txt");
+
+    public void SaveHistory()
+    {
+        try
+        {
+            string path = HistoryPath;
+            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path)!);
+            var vals = _cpuBig.Export().Select(v => v.ToString("R", System.Globalization.CultureInfo.InvariantCulture));
+            System.IO.File.WriteAllText(path, DateTime.UtcNow.Ticks + "
+" + string.Join(",", vals));
+        }
+        catch { /* best effort */ }
+    }
+
+    private void LoadHistory()
+    {
+        try
+        {
+            var lines = System.IO.File.ReadAllLines(HistoryPath);
+            if (lines.Length < 2 || !long.TryParse(lines[0], out long ticks)) return;
+            var samples = lines[1].Split(',', StringSplitOptions.RemoveEmptyEntries)
+                .Select(t => double.Parse(t, System.Globalization.CultureInfo.InvariantCulture)).ToList();
+            int gap = (int)Math.Clamp((DateTime.UtcNow - new DateTime(ticks, DateTimeKind.Utc)).TotalSeconds, 0, samples.Count);
+            samples.AddRange(Enumerable.Repeat(0.0, gap));
+            var tail = samples.Skip(Math.Max(0, samples.Count - 60)).ToArray();
+            _cpuBig.Import(tail);
+            _cpuSpark.Import(tail);
+        }
+        catch { /* missing or corrupt history -> start empty */ }
     }
 
     // Network arrives on its own faster, drop-free cadence (SystemMonitor.NetTick), so the
