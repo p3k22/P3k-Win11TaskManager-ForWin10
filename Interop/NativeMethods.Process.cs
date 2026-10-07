@@ -106,6 +106,39 @@ internal static partial class NativeMethods
         finally { CloseHandle(h); }
     }
 
+    [DllImport("ntdll.dll")]
+    private static extern uint NtQueryInformationProcess(IntPtr h, int infoClass, IntPtr info, int len, out int retLen);
+
+    /// <summary>Process command line (ProcessCommandLineInformation), or "" if not readable.</summary>
+    public static string GetProcessCommandLine(int pid)
+    {
+        IntPtr h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
+        if (h == IntPtr.Zero) return "";
+        IntPtr buf = IntPtr.Zero;
+        try
+        {
+            int size = 2048;
+            for (int i = 0; i < 4; i++)
+            {
+                buf = Marshal.AllocHGlobal(size);
+                uint st = NtQueryInformationProcess(h, 60, buf, size, out int need);
+                if (st == 0)
+                {
+                    // UNICODE_STRING { ushort Length; ushort Max; IntPtr Buffer }
+                    int len = Marshal.ReadInt16(buf);
+                    IntPtr str = Marshal.ReadIntPtr(buf, 8);
+                    return len > 0 && str != IntPtr.Zero ? Marshal.PtrToStringUni(str, len / 2) ?? "" : "";
+                }
+                Marshal.FreeHGlobal(buf); buf = IntPtr.Zero;
+                if (st != 0xC0000004 && st != 0xC0000023) return "";
+                size = Math.Max(need, size * 2);
+            }
+            return "";
+        }
+        catch { return ""; }
+        finally { if (buf != IntPtr.Zero) Marshal.FreeHGlobal(buf); CloseHandle(h); }
+    }
+
     [DllImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool SetPriorityClass(IntPtr h, uint priorityClass);

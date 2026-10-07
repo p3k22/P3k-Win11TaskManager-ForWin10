@@ -29,19 +29,17 @@ public partial class DetailsView : UserControl
     private static readonly ConcurrentDictionary<int, StaticInfo> _cache = new();
     private readonly HashSet<int> _resolving = new();
 
-    private sealed record StaticInfo(string User, string Arch, string Description, string Path);
+    private sealed record StaticInfo(string User, string Arch, string Description, string Path, string Cmd);
 
     public DetailsView(SystemMonitor monitor)
     {
         InitializeComponent();
         _view = new ListCollectionView(_rows)
         {
-            IsLiveSorting = true,
             Filter = o => _filter.Length == 0 ||
                           ((DetailRow)o).Name.Contains(_filter, StringComparison.OrdinalIgnoreCase)
         };
         _view.SortDescriptions.Add(new SortDescription(nameof(DetailRow.Name), ListSortDirection.Ascending));
-        _view.LiveSortingProperties.Add(nameof(DetailRow.Name));
         Grid.ItemsSource = _view;
         BuildColumns();
 
@@ -77,13 +75,19 @@ public partial class DetailsView : UserControl
         if (_byPid.Count != seen.Count)
             foreach (var pid in new List<int>(_byPid.Keys))
                 if (!seen.Contains(pid)) { _rows.Remove(_byPid[pid]); _byPid.Remove(pid); }
+
+        // Re-sort once per tick (not per property change) and keep the user's selection.
+        var sel = Grid.SelectedItem as DetailRow;
+        _view.Refresh();
+        if (sel != null && _byPid.ContainsKey(sel.Pid) && !ReferenceEquals(Grid.SelectedItem, sel))
+            Grid.SelectedItem = sel;
     }
 
     // Resolve user/arch/description on a worker thread, then push back to the row.
     private void ResolveStatic(DetailRow row)
     {
         int pid = row.Pid;
-        if (_cache.TryGetValue(pid, out var hit)) { row.ApplyStatic(hit.User, hit.Arch, hit.Description, hit.Path); return; }
+        if (_cache.TryGetValue(pid, out var hit)) { row.ApplyStatic(hit.User, hit.Arch, hit.Description, hit.Path, hit.Cmd); return; }
         if (!_resolving.Add(pid)) return;
 
         Task.Run(() =>
@@ -97,12 +101,12 @@ public partial class DetailsView : UserControl
                 try { desc = FileVersionInfo.GetVersionInfo(path).FileDescription ?? ""; } catch { }
                 if (desc.Length == 0) desc = Path.GetFileName(path);
             }
-            var info = new StaticInfo(user, arch, desc, path);
+            var info = new StaticInfo(user, arch, desc, path, NativeMethods.GetProcessCommandLine(pid));
             _cache[pid] = info;
             Dispatcher.BeginInvoke(() =>
             {
                 _resolving.Remove(pid);
-                if (_byPid.TryGetValue(pid, out var r)) r.ApplyStatic(info.User, info.Arch, info.Description, info.Path);
+                if (_byPid.TryGetValue(pid, out var r)) r.ApplyStatic(info.User, info.Arch, info.Description, info.Path, info.Cmd);
             });
         });
     }
@@ -127,7 +131,7 @@ public partial class DetailsView : UserControl
         C("IoReadBytes", "I/O read bytes", 110), C("IoWriteBytes", "I/O write bytes", 110), C("IoOtherBytes", "I/O other bytes", 110),
         C("GpuUtil", "GPU", 60), C("GpuDedicated", "Dedicated GPU memory", 140),
         C("GpuShared", "Shared GPU memory", 130), C("GpuCommitted", "Committed GPU memory", 150),
-        C("StartTime", "Start time", 150, false), C("ImagePath", "Image path name", 300, false),
+        C("StartTime", "Start time", 150, false), C("CommandLine", "Command line", 400, false), C("ImagePath", "Image path name", 300, false),
     };
 
     private readonly List<(ColDef def, DataGridColumn col)> _cols = new();
@@ -251,8 +255,6 @@ public partial class DetailsView : UserControl
         {
             _view.SortDescriptions.Clear();
             _view.SortDescriptions.Add(new SortDescription(path, dir));
-            _view.LiveSortingProperties.Clear();
-            _view.LiveSortingProperties.Add(path);
         }
     }
 
@@ -341,13 +343,14 @@ public sealed class DetailRow : INotifyPropertyChanged
         foreach (var p in ActiveProps) OnChanged(p);
     }
 
-    public void ApplyStatic(string user, string arch, string desc, string path)
+    public void ApplyStatic(string user, string arch, string desc, string path, string cmd)
     {
         UserName = user; Architecture = arch; Description = desc;
+        if (_cmd != cmd) { _cmd = cmd; OnChanged(nameof(CommandLineText)); OnChanged(nameof(CommandLineVal)); }
         if (_path != path) { _path = path; OnChanged(nameof(ImagePathText)); OnChanged(nameof(ImagePathVal)); }
     }
 
-    private string _path = "";
+    private string _path = "", _cmd = "";
     private ProcExtra X => _s?.Extra ?? default;
     private static string K(long b) => $"{b / 1024.0:N0} K";
     private static string N(long v) => v.ToString("N0");
@@ -413,6 +416,8 @@ public sealed class DetailRow : INotifyPropertyChanged
         }
     }
     public double StartTimeVal => X.CreateFileTime;
+    public string CommandLineText => _cmd;
+    public string CommandLineVal => _cmd;
     public string ImagePathText => _path;
     public string ImagePathVal => _path;
 
