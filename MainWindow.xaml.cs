@@ -46,6 +46,7 @@ public partial class MainWindow : Window
             // raise Checked — fall through and build it directly in that case.
             NavForPage(AppSettings.DefaultPageIndex).IsChecked = true;
             if (Host.Content == null) Host.Content = _processes ??= new ProcessesView(_monitor);
+            _performance ??= new PerformanceView(_monitor); // start graph history from launch
         };
         Closing += (_, _) => SaveWindowPlacement();
         Closed += (_, _) => _monitor.Dispose();

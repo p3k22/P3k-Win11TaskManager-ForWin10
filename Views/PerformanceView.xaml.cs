@@ -90,16 +90,10 @@ public partial class PerformanceView : UserControl
         LoadStaticMemInfo();
         ApplyMetric();
 
-        // Subscribe on Loaded / unsubscribe on Unloaded so swapping tabs (which
-        // unloads the hidden view) re-attaches when shown again. Subscribing in
-        // the ctor with only an Unloaded detach permanently kills updates after
-        // the first tab switch. The -= before += guards against double-subscribe.
-        Loaded += (_, _) =>
-        {
-            monitor.Updated -= OnSnapshot; monitor.Updated += OnSnapshot;
-            monitor.NetUpdated -= OnNet; monitor.NetUpdated += OnNet;
-        };
-        Unloaded += (_, _) => { monitor.Updated -= OnSnapshot; monitor.NetUpdated -= OnNet; };
+        // Subscribe for the view's whole lifetime (MainWindow caches it and builds it
+        // at startup) so the graphs keep collecting history while another tab is shown.
+        monitor.Updated += OnSnapshot;
+        monitor.NetUpdated += OnNet;
     }
 
     // Network arrives on its own faster, drop-free cadence (SystemMonitor.NetTick), so the
